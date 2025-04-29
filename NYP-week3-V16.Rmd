@@ -523,7 +523,7 @@ kable(model.fema[!(model.fema$conf.low < 0 & model.fema$conf.high > 0), ],
 
 kable(model.male[!(model.male$conf.low < 0 & model.male$conf.high > 0),],
   caption = 'RESULTS: Table of significant terms of a linear regression model of the number of male victims of shooting per day during 2006-2003',
-  digits = 3)
+  digits = 1)
 
 ```
 
