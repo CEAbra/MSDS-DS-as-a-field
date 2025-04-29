@@ -1,0 +1,527 @@
+---
+title:
+  "NYPD Shooting Incident Data Analysis (Update Version) -
+  Temporal pattern in shooting incidents in NYC - 2006-20024"
+author:
+  "CA"
+date:
+  "2025-12-02"
+output:
+  pdf_document
+fontsize:
+  12pt
+---
+List of libraries used in this project:
+  car | tidyverse | readxl  | broom | reghelper | knitr
+
+# Summary
+
+In this project, I used the NYPD Shooting Incident data of the period 2006-2023 from the NYC Open Data, a free public data repository published by New York City Agencies and other partners. I explored if the victims of shootings in New York during the years between 2006 and 2023 period were mostly female and, if there was a weekly and/or monthly pattern in the occurrence.
+
+# Objective
+
+- To explore if the victims of shootings in New York during the years between 2006 and 2023 period are mostly female 
+- To determine if there is a weekly and/or monthly pattern in the occurrence.
+
+# Setup
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set the seed to generate the same random sequence of pseudo-numbers each time that this code is run. This ensures reproducibility.
+
+set.seed(111)
+
+```
+
+
+## Load libraries
+
+```{r libraries}
+
+# Load libraries
+
+library(car)
+library(tidyverse)
+library(readxl)
+library(broom)
+library(reghelper)
+library(knitr)
+```
+
+## Load data
+
+```{r incident.data-load}
+
+# Create string with the url to download the data with shooting incidents
+url.ini.data <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+
+# Load data
+incident.data <- read_csv(url.ini.data)
+
+# Get a glimpse of the data
+
+glimpse(incident.data)
+
+```
+
+# Features table
+
+I extracted the table with the abbreviations and descriptions of the variables from NYC Open Data website  <https://data.cityofnewyork.us/Public-Safety/NYPD-Shooting-Incident-Data-Historic-/833y-fsy8/about_data> . 
+
+| **Column Name**         | **Column Description**|                             
+|-------------------------|------------------------
+| INCIDENT_KEY             | Randomly generated persistent ID for each incident |
+| OCCUR_DATE               | Exact date of the shooting incident |            
+| OCCUR_TIME               | Exact time of the shooting incident |            
+| BORO                     | Borough where the shooting incident occurred | 
+| PRECINCT                 | Precinct where the shooting incident occurred |  
+| JURISDICTION_CODE        | Jurisdiction where the shooting incident | occurred |
+| LOCATION_DESC            | Location of the shooting incident|               | STATISTICAL_MURDER_FLAG  | Shooting resulted in the victim's death which would be counted as a murder |
+| PERP_AGE_GROUP           | Perpetrator's age within a category |            
+| PERP_SEX                 | Perpetrator's sex description |                  
+| PERP_RACE                | Perpetrator's race description |                 
+| VIC_AGE_GROUP            | Victim's age within a category |                 
+| VIC_SEX                  | Victim's sex description |                       
+| VIC_RACE                 | Victim's race description |                      
+| X_COORD_CD               | Midblock X-coordinate for New York State Plane Coordinate System, Long Island Zone, NAD 83, units feet (FIPS 3104) |         
+| Y_COORD_CD               | Midblock Y-coordinate for New York State Plane  Coordinate System, Long Island Zone, NAD 83, units feet (FIPS 3104) |
+
+In the same website, I found that INCIDENT_KEY could appear in multiple rows because there could be more than one victim during a shooting incident. Therefore, each row represents a victim.
+
+# Data Wrangling
+
+For this analysis, I used the following features: 
+
+* OCCUR_DATE
+* VIC_SEX 
+
+```{r select}
+
+incident.data <- incident.data %>%
+  select(INCIDENT_KEY, OCCUR_DATE, VIC_SEX)
+
+```
+
+## Missing values 
+
+```{r missing}
+
+# Check missing values in INCIDENT_key
+
+sprintf('Missing values for INCIDENT_key: %d',  sum(is.na(incident.data$INCIDENT_KEY)))
+
+# Missing values for OCCUR_DATE
+sprintf('Missing values for OCCUR_DATE: %d',  sum(is.na(incident.data$OCCUR_DATE)))
+
+# Missing values for VICTIMS'SEX:
+sprintf('Missing values for VIC_SEX: %d',  sum(is.na(incident.data$VIC_SEX)))
+
+
+```
+
+## Data Transformation
+
+1. I changed the type of data in OCCUR_DATE from 'character' to 'date' type to get year of each entry.
+
+```{r parse_date}
+
+# Transform OCCUR_DATA to POSIXct date-time type.
+
+cleaned.data <- incident.data %>%
+  mutate(OCCUR_DATE = as.Date(OCCUR_DATE,
+                                 tz = '',
+                                 tryFormats = '%m/%d/%Y'))  
+
+
+# To be able to work with the date per year, a new column 'year' needs to be created.
+
+cleaned.data <- cleaned.data %>%
+  mutate(
+    # Create a column with year data
+    YEAR = format(OCCUR_DATE, '%Y'),
+    YEAR = factor(YEAR, levels = sort(unique(YEAR)))
+  )
+
+```
+
+
+2. I converted column VIC_SEX to factor and changed levels name of the sex of victims and reordered the levels.
+
+```{r vic-info}
+
+# Check the labels used for the sex of victims
+
+unique(cleaned.data$VIC_SEX)
+
+# The levels "F", "M" and "U" need to be changed to "Female", "Male" and "Unknown".
+
+cleaned.data <- cleaned.data %>%
+  mutate(VIC_SEX = parse_factor(VIC_SEX),
+         VIC_SEX = recode(VIC_SEX,
+                'F' = 'Female',
+                'M' = 'Male',
+                'U' = 'Unknown'),
+         VIC_SEX = fct_relevel(VIC_SEX,
+                     'Unknown',
+                     'Female',
+                     'Male'))
+
+# Check that the transformation was successful
+unique(cleaned.data$VIC_SEX)
+
+```
+
+## Data Visualization : Are the victims of shooting incidents in New York mostly female?
+
+With the next graph I aimed to explore the question if the victims of shooting incidents during period 2006-2013 in New York were mostly women.
+
+```{r graph-victim}
+
+# Plot the number of victims female, male victims by year. The number of victims with unknown sex was not included in this analysis due to his low number.
+
+cleaned.data <- cleaned.data %>%
+  filter(VIC_SEX != 'Unknown')
+
+ggplot(data = cleaned.data, aes(x = YEAR, fill = VIC_SEX)) +
+  geom_bar() + facet_grid(.~ VIC_SEX) +
+  theme(axis.text.x = element_text(angle = 80,
+                                   vjust = 0.5,
+                                   hjust = 0.5,
+                                   size = 12),
+        axis.title.x = element_text(size = 13),
+        axis.text.y = element_text(size = 12),
+        axis.title.y = element_text(size = 13),
+        panel.background = element_rect(fill = 'white'),
+        panel.grid.major = element_blank(),
+        axis.line = element_line(color = 'darkgray'),
+        strip.text = element_text(size = 13),
+        legend.position = 'none') +
+  scale_y_continuous(limits = c(0,2000)) +
+  scale_fill_manual(values = c('Female' = 'black', 'Male' = 'burlywood3')) +
+  ylab('Number of \nshooting vicims per year') +
+  xlab('Year')
+
+  
+```
+
+Conclusion 1:  Females were not the most common victims during 2006-2023. The number of male victims is higher than number of female victims across the period 2006-2023.
+
+# Bias Identification: 
+The previous graph helped me to identified my bias. I was expecting to find that most of the victims were female and that was why initially I decided to focus in the female population. For this reason, and to have a clearer idea of the pattern of shooting in NYC, I redirected the study to include the analysis of the pattern of shooting involving male victims.
+I omitted the analysis of the Unknown class because the number of cases is small.
+
+## Data Visualization 2 : Is there a weekly and/or monthly pattern in the number of shootings incidents that involved male and female victims in NY in the period 2006-2023?
+
+### Data Wrangling
+
+
+The next graph seeks to explore the number of shootings in the different days of week and months of the year during the period 2006-2023 for female and male victims separately. To facilitate the visualization, days were divided in weekdays and weekends, and months, in seasons.
+
+```{r, week-season}
+
+date.transformation <- function(x){
+  x <- x %>%
+  mutate(
+  # Create a column with the day of the week
+    DAY_OF_WEEK = weekdays(OCCUR_DATE),
+  # Create a new column for the type of day
+    WEEK = case_when(
+      DAY_OF_WEEK %in% c('Monday', 'Tuesday', 'Wednesday','Thursday', 'Friday') ~ 'Weekday',
+      DAY_OF_WEEK %in% c('Saturday', 'Sunday') ~ 'Weekend'),
+  # Create a column with month data
+    MONTH = months(OCCUR_DATE),
+  #Create a new column for Season and assign season according to the month
+    SEASON = MONTH,
+    SEASON = case_when(
+    SEASON %in% c('December', 'January', 'February') ~ 'Winter',
+    SEASON %in% c('March', 'April', 'May') ~ 'Spring',
+    SEASON %in% c('June', 'July', 'August') ~ 'Summer',
+    SEASON %in% c('September', 'October', 'November') ~ 'Fall' ))
+  # Convert season to a factor and change levels order to ease analysis
+
+}
+
+
+
+cleaned.data <- date.transformation(cleaned.data) %>%
+  # Convert season to a factor and change levels order to ease analysis
+  mutate(
+      SEASON = fct_relevel(SEASON, 'Winter','Spring', 'Summer', 'Fall'), 
+  # Create a column with month data
+      WEEK = fct_relevel(WEEK, 'Weekday', 'Weekend'))
+
+
+```
+
+
+# Data Visualization
+
+To help with visualization, the total number of victims per date were added and then averaged per type of day (weekend or weekday), season and year.
+
+```{r, female-graph}
+
+# Filter female victims
+fema.data <- cleaned.data %>%
+  filter(VIC_SEX != 'Male') %>%
+  # Group by Date and then add the number of female victims per date
+  group_by(OCCUR_DATE, WEEK, SEASON, YEAR)%>%
+  summarize(VIC_PER_DAY = n()) %>%
+  # Group by Week, YEAR, SEASON
+  group_by(WEEK, YEAR, SEASON) %>%
+  summarize(VIC_PER_DAY = mean(VIC_PER_DAY))
+
+# Plot female victims per season and day of the week
+
+fema.plot = 
+  ggplot(data = fema.data,
+       aes(x = SEASON,
+           y = VIC_PER_DAY,
+           shape = WEEK)) +
+  geom_jitter(position = position_jitter(width = 0.15),
+              size = 4,
+              fill = 'burlywood',
+              color = 'black',
+              stroke = 1) +
+  ylab('Average daily number\n of shooting victims') +
+   theme(panel.background = element_rect(fill = 'white'),
+        panel.grid.major = element_blank(),
+        axis.line = element_line(color = 'darkgray'),
+        strip.text = element_text(size = 13),
+        legend.position = 'top',
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title.x = element_text(size = 14),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 14)) +
+  scale_shape_manual(values = c(23,17))  +
+  ggtitle('Average Daily Number of Females Victims per Type of Day, Year and Season')
+
+```
+
+
+```{r male-graph}
+
+# Filter male victims
+male.data <- cleaned.data %>%
+  filter(VIC_SEX != 'Female') %>%
+  # Group by Date and then add the number of male victims per date
+  group_by(OCCUR_DATE, WEEK, SEASON, YEAR)%>%
+  summarize(VIC_PER_DAY = n()) %>%
+  # Group by Week, YEAR, SEASON
+  group_by(WEEK, YEAR, SEASON) %>%
+  summarize(VIC_PER_DAY = mean(VIC_PER_DAY))
+
+# Plot male victims per season and day of the week
+male.plot =
+  ggplot(data = male.data,
+       aes(x = SEASON,
+           y = VIC_PER_DAY,
+           shape = WEEK)) +
+  geom_jitter(position = position_jitter(width = 0.15),
+              size = 4,
+              fill = 'burlywood',
+              color = 'black',
+              stroke = 1) +
+  ylab('Average daily number\n of shooting victims') +
+   theme(panel.background = element_rect(fill = 'white'),
+        panel.grid.major = element_blank(),
+        axis.line = element_line(color = 'darkgray'),
+        strip.text = element_text(size = 13),
+        legend.position = 'top',
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title.x = element_text(size = 14),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 14)) +
+  scale_shape_manual(values = c(23,17))  +
+  ggtitle('Average Daily Number of Males Victims per Type of Day, Year and Season')
+
+```
+
+```{r, panel-graph}
+
+# Plot female and male plot 
+
+fema.plot
+male.plot
+
+```
+
+Conclusion: There were more shootings involving male victims on weekends, and they were higher in Summer during the period 2006-2023. In the case of female victims, there seem to be a trend showing an increase in summer.
+
+
+## Model
+
+
+In the this section I tested if in the number of victims, female and male separately, were statistically significant higher in summer months: June, July and August, and if they were higher during the weekends through the years 2006-2023. To simplify the model, I tested weekdays vs weekends, and between group months according to seasons.
+
+
+# Data Wrangling 
+
+Some days during the period 2006-2023 might have not got registered shooting accidents, or they did have registered  shootings but involved victims who were not assigned a sex (I removed those rows in a previous section). I added these days if they existed.
+
+```{r, missing-days}
+
+# Check for days without records
+uniq.days = unique(cleaned.data$OCCUR_DATE)
+
+# Create a sequence from the first day with records in 2006
+
+# and the last day with records in 2023.
+all.days = seq.Date(min(as.Date(uniq.days)), max(as.Date(uniq.days)), by = 'day')
+
+# Confirm that there are missing days in the dataset.
+length(uniq.days)
+length(all.days) 
+
+# Convert sequence of total days during 2006-2023 to date data and get day of week, month and year.
+all.days = as.Date(all.days)
+all.days = as_tibble(all.days)
+names(all.days) = 'OCCUR_DATE'
+all.days <- all.days %>%
+  mutate(
+    DAY_OF_WEEK = weekdays(OCCUR_DATE),
+    YEAR = format(OCCUR_DATE, '%Y'),
+    MONTH = months(OCCUR_DATE)
+  )
+  
+# Use a full join to add the missing days to the dataset.
+cleaned.data = full_join(cleaned.data, all.days, by = c('OCCUR_DATE', 'DAY_OF_WEEK', 'YEAR', 'MONTH'))
+
+  # Create a new column and assign the value 0 if there was not a victim that day, 1 otherwise
+cleaned.data$VIC = ifelse(is.na(cleaned.data$INCIDENT_KEY) == TRUE, 0, 1)
+
+```
+
+# Model
+
+To assess if the number of victims was statistically significant higher during weekends during 2006-2023 and if this increase was season dependent, I used a linear model followed by Two Way Analysis of Variance (ANOVA) with interaction (I considered interaction between seasons and weekends).
+
+Model for female victims:
+
+```{r, model-female}
+
+# Filter out data of male victims, this will keep row with days with female victims and days without victims
+fema.data <- cleaned.data %>%
+  filter(VIC_SEX != 'Male') %>%
+# Group by Date and then add the number of female victim per day 
+  group_by(OCCUR_DATE, DAY_OF_WEEK, MONTH, YEAR)%>%
+  summarize(VIC_PER_DAY = sum(VIC))
+
+fema.data <- date.transformation(fema.data) %>%
+# Convert SEASON and WEEK to factor
+mutate(
+  SEASON = factor(SEASON),
+  WEEK = factor(WEEK)) %>%
+# Group by Week, YEAR, SEASON
+  group_by(WEEK, YEAR, SEASON) %>%
+  summarize(VIC_PER_DAY = mean(VIC_PER_DAY))
+
+# Linear Regression model with interaction
+model.fema.aov <- fema.data %>%
+  lm(VIC_PER_DAY ~ SEASON +
+                   WEEK + 
+                   WEEK : SEASON,
+                   data = .,
+                   contrasts = list(
+                     SEASON = contr.sum,
+                     WEEK = contr.sum)
+     ) %>% 
+  Anova(type = 3)
+
+# Print result  
+kable(model.fema.aov, caption = 'Anova test of the Linear Regression Model with Interaction for Female Victims Data')
+
+# The effect of season and the interaction term were not significant, so I removed them from the model.
+
+# New model
+model.fema <- fema.data%>%
+  lm(VIC_PER_DAY ~ WEEK,
+                   data = .) %>%
+  tidy(conf.int = TRUE)
+
+# Print results
+kable(model.fema, caption = 'Linear Regression Model for Female Victims Data')
+
+```
+
+
+Model for male victims:
+
+```{r, model-male}
+
+# Filter out data of male victims, this will keep row with days with male victims and days without victims
+male.data <- cleaned.data %>%
+  filter(VIC_SEX != 'Female') %>%
+# Group by Date and then add the number of female victim per day 
+  group_by(OCCUR_DATE, DAY_OF_WEEK, MONTH, YEAR)%>%
+  summarize(VIC_PER_DAY = sum(VIC))
+
+male.data <- date.transformation(male.data) %>%
+# Convert SEASON and WEEK to factor
+mutate(
+  SEASON = factor(SEASON),
+  WEEK = factor(WEEK)) %>%
+# Group by Week, YEAR, SEASON
+  group_by(WEEK, YEAR, SEASON) %>%
+  summarize(VIC_PER_DAY = mean(VIC_PER_DAY))
+
+# Linear Regression model with interaction
+model.male.aov <- male.data %>%
+  lm(VIC_PER_DAY ~ SEASON +
+                   WEEK + 
+                   WEEK : SEASON,
+                   data = .,
+                   contrasts = list(
+                     SEASON = contr.sum,
+                     WEEK = contr.sum)
+     ) %>% 
+  Anova(type = 3)
+
+# Print result  
+kable(model.male.aov, caption = 'Anova test of the linear regression model with interaction for Male Victims Data')
+
+# The effect of week, season and the interaction term were significant in this case, so I kept them in the model.
+
+# New model
+model.male <- male.data%>%
+  lm(VIC_PER_DAY ~ SEASON +
+                   WEEK +
+                   SEASON : WEEK,
+                   data = .) %>%
+  tidy(conf.int = TRUE)
+
+# Print results
+kable(model.male, caption = 'Linear Regression Model for Male Victims Data')
+
+```
+
+# Final Results of Modelling
+
+```{r, model-final-results}
+
+# Print result with the significant terms
+
+kable(model.fema[!(model.fema$conf.low < 0 & model.fema$conf.high > 0), ], caption = 'RESULTS: Table of significant terms of a linear regression model of the number of female victims of shooting per day during 2006-2003')
+
+kable(model.male[!(model.male$conf.low < 0 & model.male$conf.high > 0),], caption = 'RESULTS: Table of significant terms of a linear regression model of the number of male victims of shooting per day during 2006-2003')
+
+```
+
+
+# Conclusions
+
+In the case of females, I found that there was a small but statistically significant increase on the number of female victims per day during the weekends compared to the rest of the days of the weeks during 2006-2024, but this increase was not affected by seasonality. 
+However, in the case of males, I found that there was a statistically significant increase on the number of male victims per day during the weekend compared to the rest of the days of the week during 2006-2024 and this increase was statistically significant higher during fall and summer. The latter was the season where the rate of increased peaked.
+
+# R session information 
+
+```{r session-info}
+sessionInfo()
+
+```
+
