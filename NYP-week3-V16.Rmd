@@ -9,7 +9,7 @@ date:
 output:
   pdf_document
 fontsize:
-  12pt
+  10pt
 ---
 List of libraries used in this project:
   car | tidyverse | readxl  | broom | reghelper | knitr
@@ -519,7 +519,7 @@ kable(model.male,
 
 kable(model.fema[!(model.fema$conf.low < 0 & model.fema$conf.high > 0), ], 
   caption = 'RESULTS: Table of significant terms of a linear regression model of the number of female victims of shooting per day during 2006-2003',
-  digits = 3)
+  digits = 1)
 
 kable(model.male[!(model.male$conf.low < 0 & model.male$conf.high > 0),],
   caption = 'RESULTS: Table of significant terms of a linear regression model of the number of male victims of shooting per day during 2006-2003',
