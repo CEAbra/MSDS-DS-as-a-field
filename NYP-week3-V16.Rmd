@@ -212,6 +212,9 @@ Conclusion 1:  Females were not the most common victims during 2006-2023. The nu
 The previous graph helped me to identified my bias. I was expecting to find that most of the victims were female and that was why initially I decided to focus in the female population. For this reason, and to have a clearer idea of the pattern of shooting in NYC, I redirected the study to include the analysis of the pattern of shooting involving male victims.
 I omitted the analysis of the Unknown class because the number of cases is small.
 
+Note: Other sources of bias could be how I grouped the months.
+
+
 ## Data Visualization 2 : Is there a weekly and/or monthly pattern in the number of shootings incidents that involved male and female victims in NY in the period 2006-2023?
 
 ### Data Wrangling
