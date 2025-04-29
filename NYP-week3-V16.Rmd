@@ -437,7 +437,9 @@ model.fema.aov <- fema.data %>%
   Anova(type = 3)
 
 # Print result  
-kable(model.fema.aov, caption = 'Anova test of the Linear Regression Model with Interaction for Female Victims Data')
+kable(model.fema.aov, 
+  caption = 'Anova test of the Linear Regression Model with Interaction for Female Victims Data',
+  digits = 3)
 
 # The effect of season and the interaction term were not significant, so I removed them from the model.
 
@@ -448,7 +450,9 @@ model.fema <- fema.data%>%
   tidy(conf.int = TRUE)
 
 # Print results
-kable(model.fema, caption = 'Linear Regression Model for Female Victims Data')
+kable(model.fema, 
+  caption = 'Linear Regression Model for Female Victims Data', 
+  digits = 3)
 
 ```
 
@@ -486,7 +490,9 @@ model.male.aov <- male.data %>%
   Anova(type = 3)
 
 # Print result  
-kable(model.male.aov, caption = 'Anova test of the linear regression model with interaction for Male Victims Data')
+kable(model.male.aov, 
+  caption = 'Anova test of the linear regression model with interaction for Male Victims Data',
+  digits = 3)
 
 # The effect of week, season and the interaction term were significant in this case, so I kept them in the model.
 
@@ -499,7 +505,9 @@ model.male <- male.data%>%
   tidy(conf.int = TRUE)
 
 # Print results
-kable(model.male, caption = 'Linear Regression Model for Male Victims Data')
+kable(model.male, 
+  caption = 'Linear Regression Model for Male Victims Data',
+  digits = 3)
 
 ```
 
@@ -509,9 +517,13 @@ kable(model.male, caption = 'Linear Regression Model for Male Victims Data')
 
 # Print result with the significant terms
 
-kable(model.fema[!(model.fema$conf.low < 0 & model.fema$conf.high > 0), ], caption = 'RESULTS: Table of significant terms of a linear regression model of the number of female victims of shooting per day during 2006-2003')
+kable(model.fema[!(model.fema$conf.low < 0 & model.fema$conf.high > 0), ], 
+  caption = 'RESULTS: Table of significant terms of a linear regression model of the number of female victims of shooting per day during 2006-2003',
+  digits = 3)
 
-kable(model.male[!(model.male$conf.low < 0 & model.male$conf.high > 0),], caption = 'RESULTS: Table of significant terms of a linear regression model of the number of male victims of shooting per day during 2006-2003')
+kable(model.male[!(model.male$conf.low < 0 & model.male$conf.high > 0),],
+  caption = 'RESULTS: Table of significant terms of a linear regression model of the number of male victims of shooting per day during 2006-2003',
+  digits = 3)
 
 ```
 
