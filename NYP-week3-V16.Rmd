@@ -300,7 +300,7 @@ fema.plot =
         legend.text = element_text(size = 13),
         legend.title = element_text(size = 14)) +
   scale_shape_manual(values = c(23,17))  +
-  ggtitle('Average Daily Number of Females Victims per Type of Day, Year and Season')
+  ggtitle('Average Daily Number of Females Victims\n per Type of Day, Year and Season')
 
 ```
 
@@ -341,7 +341,7 @@ male.plot =
         legend.text = element_text(size = 13),
         legend.title = element_text(size = 14)) +
   scale_shape_manual(values = c(23,17))  +
-  ggtitle('Average Daily Number of Males Victims per Type of Day, Year and Season')
+  ggtitle('Average Daily Number of Males Victims\n per Type of Day, Year and Season')
 
 ```
 
